@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Word Tracker — George</title>
+  <link rel="icon" href="favicon.ico" />
+  <!-- Safari pinned tab color -->
+  <meta name="theme-color" content="#0b132b" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Preload fonts fallback (system first) -->
+  <style>
+    :root{
+      --accent: #0071e3;
+      --accent-2: #6ea8ff;
+      --glass-radius: 1.25rem;
+      --card-padding: 28px;
+      --soft-shadow: 0 10px 35px rgba(2,6,23,0.45);
+      --radius-xl: 20px;
+    }
+
+    html,body{height:100%;}
+    body{
+      margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,Roboto,Helvetica,Arial,sans-serif;
+      -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+      display:flex;align-items:center;justify-content:center;padding:36px;transition:background .45s ease,color .45s ease;}
+
+    /* Animated background gradient (slow) */
+    .bg-animated{position:fixed;inset:0;z-index:-20;overflow:hidden}
+    .bg-animated .layer{position:absolute;inset:-20%;filter:blur(90px);opacity:0.8;transform-origin:center;animation:rotateBg 30s linear infinite}
+    .bg-animated .layer.l1{background:linear-gradient(120deg,var(--accent),#0a84ff 60%);} 
+    .bg-animated .layer.l2{background:linear-gradient(120deg,#0b1021,#07263a);} 
+    @keyframes rotateBg{0%{transform:rotate(0deg) scale(1);}50%{transform:rotate(45deg) scale(1.08);}100%{transform:rotate(360deg) scale(1);} }
+
+    /* Light/Dark mode rules */
+    @media (prefers-color-scheme: dark){
+      body{background:linear-gradient(180deg,#071026 0%, #0b132b 100%);color:#e9f0ff}
+      .card{background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));box-shadow:var(--soft-shadow);}    
+      .muted{color:rgba(255,255,255,0.75)}
+      .subtle{color:rgba(255,255,255,0.6)}
+    }
+    @media (prefers-color-scheme: light){
+      body{background:linear-gradient(180deg,#f8fafc 0%, #eef2ff 100%);color:#061024}
+      .card{background:linear-gradient(180deg,#ffffff,#fbfbff);box-shadow:0 10px 30px rgba(10,20,40,0.06)}
+      .muted{color:rgba(6,16,36,0.7)}
+      .subtle{color:rgba(6,16,36,0.55)}
+    }
+
+    /* Card */
+    .card{width:980px;max-width:96vw;border-radius:var(--radius-xl);padding:var(--card-padding);transition:transform .35s ease;border:1px solid rgba(255,255,255,0.02);}
+
+    /* Header */
+    .title{font-weight:800;font-size:1.6rem;letter-spacing:-0.02em;display:flex;align-items:center;gap:12px}
+    .title .logo{width:44px;height:44px;border-radius:10px;display:inline-grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 6px 22px rgba(6,97,185,0.18)}
+    .title .title-text{background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 6px 18px rgba(10,80,160,0.12)}
+
+    /* Textarea */
+    .input-wrap{position:relative;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
+    textarea#textInput{width:100%;min-height:220px;max-height:52vh;resize:none;padding:22px 22px;font-size:16px;line-height:1.55;border:0;outline:none;background:transparent;color:inherit}
+    .placeholder-sub{position:absolute;right:14px;bottom:12px;font-size:12px;opacity:0.6}
+
+    /* Controls */
+    .controls{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+    .control-panel{display:flex;gap:12px;align-items:center}
+
+    /* Apple-like toggle */
+    .toggle{width:52px;height:30px;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));padding:4px;position:relative;cursor:pointer;transition:all .18s}
+    .toggle .knob{width:22px;height:22px;border-radius:999px;background:white;box-shadow:0 6px 16px rgba(2,6,23,0.35);transform:translateX(0);transition:all .18s}
+    .toggle.on{background:linear-gradient(90deg,var(--accent),var(--accent-2));}
+    .toggle.on .knob{transform:translateX(22px)}
+
+    /* Stats */
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:10px}
+    .stat{padding:14px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.005));border:1px solid rgba(255,255,255,0.03);transition:transform .22s,box-shadow .22s}
+    .stat:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(2,6,23,0.25)}
+    .stat .label{font-size:13px;color:var(--muted);}
+    .stat .value{font-weight:800;font-size:1.5rem;margin-top:6px}
+
+    /* Small responsive tweaks */
+    @media (max-width:880px){
+      .card{padding:20px;width:94vw}
+      .stats{grid-template-columns:repeat(2,1fr)}
+    }
+    @media (max-width:520px){
+      .stats{grid-template-columns:1fr}
+      .title{font-size:1.25rem}
+      textarea#textInput{min-height:200px}
+    }
+
+    /* animated numbers */
+    .num{display:inline-block;transition:transform .18s ease,opacity .18s ease}
+
+    /* subtle buttons */
+    .btn{padding:10px 16px;border-radius:999px;border:0;font-weight:600;cursor:pointer;transition:transform .18s,box-shadow .18s}
+    .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white;box-shadow:0 8px 30px rgba(4,100,200,0.18)}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:inherit}
+
+    .muted{font-size:0.92rem;color:var(--muted)}
+    .subtle{font-size:0.86rem;color:var(--subtle)}
+
+    /* tooltips */
+    .tooltip{position:relative}
+    .tooltip .tip{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:8px 10px;border-radius:8px;font-size:12px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s}
+    .tooltip:hover .tip{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+    /* language badge */
+    .badge{padding:6px 10px;border-radius:999px;font-weight:700;font-size:13px;background:linear-gradient(90deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02)}
+
+    footer{margin-top:14px;text-align:right;font-size:0.86rem;opacity:0.8}
+
+  </style>
+</head>
+<body>
+  <div class="bg-animated" aria-hidden="true">
+    <div class="layer l1"></div>
+    <div class="layer l2" style="animation-direction:reverse;opacity:0.6"></div>
+  </div>
+
+  <main class="card" role="main" aria-labelledby="appTitle">
+    <header class="flex items-start justify-between">
+      <div>
+        <div class="title" id="appTitle">
+          <div class="logo" aria-hidden>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="2" y="2" width="20" height="20" rx="6" fill="white" fill-opacity="0.12"></rect>
+              <path d="M7 9h10M7 13h10M7 17h6" stroke="white" stroke-opacity="0.9" stroke-width="1.4" stroke-linecap="round"></path>
+            </svg>
+          </div>
+          <div class="title-text">Word Tracker</div>
+        </div>
+        <div class="muted mt-2">Counts update instantly as you type — supports English & 中文. Toggle what to include below.</div>
+      </div>
+
+      <div class="text-right">
+        <div class="muted">Language Detected</div>
+        <div id="langBadge" class="badge mt-2">Auto</div>
+      </div>
+    </header>
+
+    <section class="mt-4 input-wrap" aria-labelledby="inputLabel">
+      <label id="inputLabel" class="sr-only">Text input</label>
+      <textarea id="textInput" aria-label="Text input for counting" placeholder="Paste or type text here..." spellcheck="true" autocomplete="off"></textarea>
+      <div class="placeholder-sub subtle">Auto-resize • Supports paste, composition, and long documents</div>
+    </section>
+
+    <section class="mt-4">
+      <div class="stats" role="region" aria-label="Statistics">
+        <div class="stat" aria-hidden="false">
+          <div class="label subtle">Primary Count</div>
+          <div class="value"><span id="primaryCount" class="num">0</span> <span class="subtle" id="primaryLabel">—</span></div>
+        </div>
+
+        <div class="stat">
+          <div class="label subtle">Total Characters</div>
+          <div class="value"><span id="totalChars" class="num">0</span> <span class="subtle">chars</span></div>
+        </div>
+
+        <div class="stat">
+          <div class="label subtle">English Words</div>
+          <div class="value"><span id="engWords" class="num">0</span> <span class="subtle">words</span></div>
+        </div>
+
+        <div class="stat">
+          <div class="label subtle">Chinese Characters</div>
+          <div class="value"><span id="cnChars" class="num">0</span> <span class="subtle">chars</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-5 flex items-center justify-between flex-wrap gap-3">
+      <div class="controls">
+        <div class="control-panel">
+          <div class="tooltip">
+            <div class="toggle" id="toggleSpaces" role="switch" tabindex="0" aria-checked="false">
+              <div class="knob"></div>
+            </div>
+            <div style="margin-left:10px">
+              <div style="font-weight:700">Include spaces</div>
+              <div class="subtle">Whether spaces count toward Total Characters</div>
+            </div>
+            <div class="tip">Spaces: when ON, spaces are counted in totals</div>
+          </div>
+        </div>
+
+        <div class="control-panel">
+          <div class="tooltip">
+            <div class="toggle" id="togglePunct" role="switch" tabindex="0" aria-checked="false">
+              <div class="knob"></div>
+            </div>
+            <div style="margin-left:10px">
+              <div style="font-weight:700">Include punctuation</div>
+              <div class="subtle">Whether punctuation & symbols are counted</div>
+            </div>
+            <div class="tip">Punctuation: when ON, punctuation characters are counted</div>
+          </div>
+        </div>
+
+        <div class="control-panel">
+          <label for="langOverride" class="subtle" style="font-weight:700;margin-right:8px">Language</label>
+          <select id="langOverride" class="rounded-lg border px-3 py-2" aria-label="Language override">
+            <option value="auto">Auto</option>
+            <option value="english">English</option>
+            <option value="chinese">Chinese</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex gap-3 items-center">
+        <button id="copyBtn" class="btn primary" title="Copy stats to clipboard">Copy Stats</button>
+        <button id="clearBtn" class="btn ghost" title="Clear text area">Clear</button>
+      </div>
+    </section>
+
+    <footer>
+      <div class="subtle">Designed by George • Offline • Static</div>
+    </footer>
+  </main>
+
+  <!-- Extensive JS: counting logic, animations, accessibility, autosize, keyboard shortcuts -->
+  <script>
+    // Elements
+    const textInput = document.getElementById('textInput');
+    const primaryCount = document.getElementById('primaryCount');
+    const primaryLabel = document.getElementById('primaryLabel');
+    const totalChars = document.getElementById('totalChars');
+    const engWords = document.getElementById('engWords');
+    const cnChars = document.getElementById('cnChars');
+    const langBadge = document.getElementById('langBadge');
+    const toggleSpaces = document.getElementById('toggleSpaces');
+    const togglePunct = document.getElementById('togglePunct');
+    const langOverride = document.getElementById('langOverride');
+    const copyBtn = document.getElementById('copyBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    // Initial settings: spaces and punctuation OFF
+    let settings = { spaces: false, punct: false };
+
+    // Accessibility: expose values
+    toggleSpaces.setAttribute('aria-checked', 'false');
+    togglePunct.setAttribute('aria-checked', 'false');
+
+    // Autosize textarea
+    function autoResize(){
+      textInput.style.height = 'auto';
+      const max = Math.max(180, Math.min(window.innerHeight * 0.55, textInput.scrollHeight));
+      textInput.style.height = (max) + 'px';
+    }
+
+    // Language detection: robust using Unicode properties
+    function detectLanguage(text){
+      if(!text) return 'auto';
+      // Count Han characters
+      const han = (text.match(/\p{Script=Han}/gu) || []).length;
+      // Count Latin words
+      const latin = (text.match(/[A-Za-z0-9]+/g) || []).length;
+      if(han === 0 && latin === 0) return 'auto';
+      if(han / (han + latin) > 0.55) return 'chinese';
+      if(latin / (han + latin) > 0.55) return 'english';
+      return 'mixed';
+    }
+
+    // Filter text according to settings
+    function filterText(raw){
+      let t = String(raw);
+      if(!settings.punct){
+        // Remove punctuation and symbols (keep letters, numbers, and Han characters)
+        t = t.replace(/[\p{P}\p{S}]/gu, '');
+      }
+      if(!settings.spaces){
+        // Remove all whitespace
+        t = t.replace(/\s+/g, '');
+      }
+      return t;
+    }
+
+    // Counting helpers
+    function countEnglishWords(text){
+      if(!text) return 0;
+      const tokens = text.match(/[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*/g) || [];
+      return tokens.length;
+    }
+    function countChineseChars(text){
+      return (text.match(/\p{Script=Han}/gu) || []).length;
+    }
+
+    // Animated number change
+    function animateNumber(el, to){
+      const from = parseInt(el.textContent.replace(/[^0-9\-]/g,'')) || 0;
+      const duration = 260;
+      const start = performance.now();
+      function step(now){
+        const t = Math.min(1, (now - start)/duration);
+        const eased = t < .5 ? 2*t*t : -1 + (4-2*t)*t; // easeInOut
+        const cur = Math.round(from + (to - from)*eased);
+        el.textContent = cur;
+        if(t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    // Main update function
+    function updateCounts(){
+      const raw = textInput.value || '';
+      const override = langOverride.value;
+      const detected = detectLanguage(raw);
+      const lang = override === 'auto' ? detected : override;
+
+      // Visual badge
+      langBadge.textContent = (lang === 'chinese') ? '中文' : (lang === 'english') ? 'English' : (lang === 'mixed') ? 'Mixed' : 'Auto';
+
+      // Prepare filtered text according to toggles
+      const filtered = filterText(raw);
+
+      // Total characters (reflects toggles)
+      const total = filtered.length;
+
+      // English words and Chinese characters counts
+      const eng = countEnglishWords(filtered);
+      const cn = countChineseChars(filtered);
+
+      // Primary count logic
+      let primary = 0; let pLabel = '';
+      if(lang === 'chinese'){ primary = cn; pLabel = 'Chinese chars'; }
+      else if(lang === 'english'){ primary = eng; pLabel = 'Words'; }
+      else {
+        // Mixed or auto -> choose dominant type
+        const auto = detectLanguage(raw);
+        if(auto === 'chinese'){ primary = cn; pLabel = 'Chinese chars'; }
+        else if(auto === 'english'){ primary = eng; pLabel = 'Words'; }
+        else { primary = total; pLabel = 'Total chars'; }
+      }
+
+      // Animate UI numbers
+      animateNumber(primaryCount, primary);
+      primaryLabel.textContent = `— ${pLabel}`;
+      animateNumber(totalChars, total);
+      animateNumber(engWords, eng);
+      animateNumber(cnChars, cn);
+
+      // Accessibility: update aria-live regions
+      primaryCount.setAttribute('aria-label', `Primary ${pLabel} ${primary}`);
+      totalChars.setAttribute('aria-label', `Total characters ${total}`);
+    }
+
+    // Toggle behavior (custom toggle elements)
+    function setToggle(el, on){
+      if(on){ el.classList.add('on'); el.setAttribute('aria-checked','true'); }
+      else { el.classList.remove('on'); el.setAttribute('aria-checked','false'); }
+    }
+
+    // initialize toggles off
+    setToggle(toggleSpaces, false); setToggle(togglePunct, false);
+
+    // Toggle click handlers
+    toggleSpaces.addEventListener('click', ()=>{ settings.spaces = !settings.spaces; setToggle(toggleSpaces, settings.spaces); updateCounts(); });
+    togglePunct.addEventListener('click', ()=>{ settings.punct = !settings.punct; setToggle(togglePunct, settings.punct); updateCounts(); });
+    // keyboard accessibility
+    [toggleSpaces, togglePunct].forEach(t=>{
+      t.addEventListener('keydown', e=>{ if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.click(); } });
+    });
+
+    // Input handlers
+    textInput.addEventListener('input', ()=>{ autoResize(); updateCounts(); });
+    textInput.addEventListener('paste', ()=>{ setTimeout(()=>{ autoResize(); updateCounts(); }, 10); });
+    langOverride.addEventListener('change', updateCounts);
+
+    // buttons
+    copyBtn.addEventListener('click', async ()=>{
+      const stats = `Language: ${langBadge.textContent}\n${primaryLabel.textContent} ${primaryCount.textContent}\nTotal chars: ${totalChars.textContent}\nEnglish words: ${engWords.textContent}\nChinese chars: ${cnChars.textContent}`;
+      try{
+        await navigator.clipboard.writeText(stats);
+        copyBtn.textContent = 'Copied ✓';
+        setTimeout(()=> copyBtn.textContent = 'Copy Stats', 1500);
+      }catch(e){
+        copyBtn.textContent = 'Copy Failed';
+        setTimeout(()=> copyBtn.textContent = 'Copy Stats', 1500);
+      }
+    });
+
+    clearBtn.addEventListener('click', ()=>{ textInput.value = ''; autoResize(); updateCounts(); textInput.focus(); });
+
+    // Keyboard shortcuts: Cmd/Ctrl+K to focus, Cmd/Ctrl+L to toggle language, Esc to clear
+    window.addEventListener('keydown', (e)=>{
+      const mod = e.metaKey || e.ctrlKey;
+      if(mod && e.key.toLowerCase() === 'k'){ e.preventDefault(); textInput.focus(); }
+      if(mod && e.key.toLowerCase() === 'l'){ e.preventDefault(); langOverride.value = (langOverride.value === 'auto') ? 'english' : (langOverride.value === 'english') ? 'chinese' : 'auto'; updateCounts(); }
+      if(e.key === 'Escape'){ textInput.value = ''; updateCounts(); }
+    });
+
+    // initial
+    autoResize(); updateCounts();
+
+    // Focus on load for fast typing
+    window.addEventListener('load', ()=>{ setTimeout(()=> textInput.focus(), 220); });
+
+  </script>
+</body>
+</html>
